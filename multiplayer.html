@@ -1,0 +1,912 @@
+<canvas id="canvas" width="300" height="300"></canvas>
+<script src="web-lib/processing.js"></script>
+<script src="web-lib/functional-light.js"></script>
+<script>
+  //Vamos a usar http://processingjs.org/
+
+  // Importamos las librerias
+  let { cons, first, isEmpty, isList, length, rest } = functionalLight;
+
+  
+  function pantallaComp() {
+    let x = document.getElementById("canvas");
+
+    if(x.mozRequestFullScreen){
+      x.mozRequestFullScreen();
+    }
+    else if (x.webkitRequestFullscreen) {
+      x.webkitRequestFullscreen();
+    }
+  }
+
+
+  const inicial = {
+        snake: [{ x: 100, y: 100 }, { x: 90, y: 100 }, { x: 80, y: 100 }], 
+        ancho: 10, 
+        alto: 10,
+        snake2: [{ x: 200, y: 150 }, { x: 190, y: 150 }, { x: 180, y: 150 }],
+        ultimaTecla: "derecha", 
+        ultimaTecla2: "derecha",
+        score: 0,
+        comida: { x: (Math.round(Math.random() * 10) / 10) * 900, y: ((Math.round(Math.random() * 10) / 10) * 500 + 90) },
+        perder: false,
+        perder2: false,
+        empate: false,
+        score2: 0,
+        velocidad: 10,
+        obstaculos: [{ x: 0, y: 0, ancho: 400, alto: 10 }, 
+            { x: 600, y: 0, ancho: 400, alto: 10 },
+            { x: 0, y: 590, ancho: 400, alto: 10 }, 
+            { x: 600, y: 590, ancho: 400, alto: 10 },
+            { x: 0, y: 0, ancho: 10, alto: 200 }, 
+            { x: 0, y: 400, ancho: 10, alto: 200 },
+            { x: 990, y: 0, ancho: 10, alto: 200 },
+            { x: 990, y: 400, ancho: 10, alto: 200 },
+            { x: 190, y: 200, ancho: 600, alto: 50 }, 
+            { x: 190, y: 400, ancho: 600, alto: 50 }],
+        pausa: false,
+        vida: 3,
+        vida2: 3
+    };
+
+
+  // FUNCIONES AUXILIARES 
+
+  /*search:any,List->Boolean
+  Verifica si un item se encuentra como elemento dentro de una lista l y retorna true o
+  */
+
+  function search(item, l) {
+    if (isEmpty(l)) {
+      return false;
+    } else if (first(l).x == item.x && first(l).y == item.y) {
+      return true
+    } else {
+      return search(item, rest(l))
+    }
+  }
+
+  function search2(item, l) {
+    if (isEmpty(l)) {
+      return false;
+    } else if (first(l) == item) {
+      return true
+    } else {
+      return search2(item, rest(l))
+    }
+  }
+
+  function sumamil(obj){
+        return make(obj,{ x: obj.x+1000});
+      }
+
+  /* remove:any,List->List
+            Eliminar un elemento "item" de una lista  "l" y retornar la lista restante
+            Ejemplos:
+        
+            console.log(remove(2,[1,4,2,5,6])) // [1,4,5,6]
+            console.log(remove(true,[false,true,"hola","mundo"])) // [false,"hola","mundo"]
+            console.log(remove(2,[4,5,6,7,8])) // [4,5,6,7,8]
+        
+        */
+  function remove(item, l) {
+    if (isEmpty(l)) {
+      return [];
+    } else if (first(l) === item) {
+      return rest(l);
+    } else {
+      return cons(first(l), remove(item, rest(l)));
+    }
+  }
+
+
+  // este es el make que creo Andres C.
+  function make(data, attribute) {
+    return Object.assign({}, data, attribute);
+  }
+
+
+  /* obj: any,any->object
+  crear un objeto con dos parametros x,y
+  */
+  function obj(x, y) {
+    return { x, y };
+  }
+
+  // funcion que concatena dos listas
+  function append(x, y) {
+    if (isEmpty(x)) {
+      return y;
+    }
+    if (length(x) == 1) {
+      return cons(first(x), y);
+    } else {
+      return cons(first(x), append(rest(x), y));
+    }
+  }
+
+  // Funcion que retorna el ultimo elemento de una lista
+  function last(x) {
+    return x[length(x) - 1];
+  }
+
+  // funcion que simula un mapeado (aplica una funcion a todos los elementos de una lista)
+  function aplicar(funcion, x) {
+    if (isEmpty(x)) {
+      return [];
+    }
+    else {
+      return cons(funcion(first(x)), aplicar(funcion, rest(x)));
+    }
+  }
+
+  // esta funcion comprueba si hay colision un objeto con otro
+  function colision(obj1, obstaculo) {
+    return ((obj1.x >= obstaculo.x && obj1.x <= obstaculo.x + obstaculo.ancho - 10) &&
+      (obj1.y >= obstaculo.y && obj1.y <= obstaculo.y + obstaculo.alto - 10));
+  }
+
+  function colision2(obj1, obstaculo) {
+
+    if(obj1.x >= obstaculo.x && obj1.x <= obstaculo.x + obstaculo.ancho-5){
+
+        return (obj1.y >= obstaculo.y && obj1.y <= obstaculo.y + obstaculo.alto-5);
+    }
+  }
+
+  function aplicar2(funcion, x, y) {
+    if (isEmpty(x)) {
+      return [];
+    }
+    else {
+      return cons(funcion(y, first(x)), aplicar2(funcion, rest(x), y));
+    }
+  }
+
+function mov2(world,ut){
+  
+   switch(true){
+
+        case (ut == "derecha"):
+            return cons(obj(first(world).x + 10, first(world).y), remove(last(world), world));
+        break;
+
+        case (ut == "izquierda"):
+          return cons(obj(first(world).x - 10, first(world).y), remove(last(world), world));
+        break;
+
+        case (ut == "arriba"):
+          return cons(obj(first(world).x, first(world).y - 10), remove(last(world), world));
+        break;
+
+        case(ut == "abajo"):
+          return cons(obj(first(world).x, first(world).y + 10), remove(last(world), world));
+
+}}
+
+function mov(ultimatecla,keyCode){
+
+  switch(keyCode){
+
+    case 38:
+
+      if (ultimatecla != "abajo") {
+        return "arriba";
+      }else{
+        return "abajo";
+      }
+    break;
+
+    case 40:
+
+      if (ultimatecla != "arriba") {
+        return "abajo";
+      }else{
+        return "arriba";
+      }
+    break;
+
+    case 37:
+
+      if (ultimatecla != "derecha") {
+        return "izquierda";
+      }else{
+        return "derecha";
+      }
+    break;
+
+    case 39:
+
+      if (ultimatecla != "izquierda") {
+        return "derecha";
+      }else{
+        return "izquierda";
+      }
+    break;
+    
+    default:
+      return ultimatecla;
+        }
+}
+
+function mov1(ultimatecla,keyCode){
+
+  switch(keyCode){
+
+
+    case 87:
+      if (ultimatecla != "abajo") {
+        return "arriba";
+      } else { 
+          return "abajo";
+      }
+    break;
+
+    case 83:
+
+      if (ultimatecla != "arriba") {
+        return "abajo";
+      }else{
+        return "arriba";
+      }
+    break;
+
+    case 65:
+
+      if (ultimatecla != "derecha") {
+        return "izquierda";
+      }else{
+        return "derecha";
+      }
+    break;
+
+    case 68:
+
+      if (ultimatecla != "izquierda") {
+        return "derecha";
+      }else{
+        return "izquierda";
+      }
+    break;
+    
+    default:
+      return ultimatecla;
+        }
+  }
+
+
+
+  function sketchProc(processing) {
+
+
+
+
+    /**
+     * Esto se llama antes de iniciar el juego
+     */
+
+    processing.setup = function (world) {
+      
+      processing.size(1000, 600);
+      processing.background(10, 200, 50);
+      processing.state = {
+        //esta es la snake. Un arreglo de objetos donde el primero representa la cabeza...
+        snake: [{ x: 100, y: 100 }, { x: 90, y: 100 }, { x: 80, y: 100 }], ancho: 10, alto: 10,
+        snake2: [{ x: 200, y: 150  }, { x: 190, y: 150 }, { x: 180, y: 150 }],
+        // ultimaTecla representarÃ¡ la tecla oprimida por el jugador
+        ultimaTecla: "derecha", 
+        ultimaTecla2: "derecha",
+        score: 0,
+        //la propiedad "comida" es un objeto con x,y. Y estos están configurados para que sean totalmente aleatorios al cagar el juego
+        comida: { x: (Math.round(Math.random() * 10) / 10) * 900, y: ((Math.round(Math.random() * 10) / 10) * 500 + 90) },
+        // la propiedad perder es un booleano que serÃ¡ true cuando la snake se muerda a si misma o toque un obstaculo
+        perder: false,
+        perder2: false,
+        empate: false,
+        score2: 0,
+        velocidad: 10,
+        obstaculos: [
+            { x: 0, y: 0, ancho: 400, alto: 10 }, 
+            { x: 600, y: 0, ancho: 400, alto: 10 },
+            { x: 0, y: 590, ancho: 400, alto: 10 }, 
+            { x: 600, y: 590, ancho: 400, alto: 10 },
+            { x: 0, y: 0, ancho: 10, alto: 200 }, 
+            { x: 0, y: 400, ancho: 10, alto: 200 },
+            { x: 990, y: 0, ancho: 10, alto: 200 },
+            { x: 990, y: 400, ancho: 10, alto: 200 },
+            { x: 190, y: 200, ancho: 600, alto: 50 }, 
+            { x: 190, y: 400, ancho: 600, alto: 50 }],
+        pausa: false,
+        vida: 3,
+        vida2: 3
+      };
+
+      img = processing.loadImage("fondo.png");
+      cuerpo = processing.loadImage("./imagenes/snake/nivel1/cuerpo.png");
+      cabeza = processing.loadImage("./imagenes/snake/nivel1/cabezaDER.png");
+      cabezaIZQ = processing.loadImage("./imagenes/snake/nivel1/cabezaIZQ.png");
+      cabezaABA = processing.loadImage("./imagenes/snake/nivel1/cabezaABA.png");
+      cabezaARR = processing.loadImage("./imagenes/snake/nivel1/cabezaARR.png");
+      cuerpo2 = processing.loadImage("./imagenes/snake/nivel1/cuerpo2.png");
+      cabeza2 = processing.loadImage("./imagenes/snake/nivel1/cabezaDER2.png");
+      cabezaIZQ2 = processing.loadImage("./imagenes/snake/nivel1/cabezaIZQ2.png");
+      cabezaABA2 = processing.loadImage("./imagenes/snake/nivel1/cabezaABA2.png");
+      cabezaARR2 = processing.loadImage("./imagenes/snake/nivel1/cabezaARR2.png");
+      huevo = processing.loadImage("./imagenes/comida/Huevo.png");
+      img2 = processing.loadImage('fondo2.png');
+      img3 = processing.loadImage('fondo3.png');
+      pausa = processing.loadImage('pausa.png');
+      bonus = processing.loadImage("./imagenes/snake/nivel1/prueba.png");
+      fondo = processing.loadImage('escenario.png');
+      disparo = processing.loadImage('disparo.png');
+      corazon = processing.loadImage('Heart.png');
+    }
+   
+
+
+    
+    
+    /**
+    * Actualiza el mundo cada vez que se oprime una tecla. Retorna el nuevo stado del mundo
+    */
+    processing.onKeyEvent = function (world, keyCode) {
+      // En esta funcion se modifica la propiedad ultimaTecla dependiendo del keyCode que el jugador oprima
+      switch (keyCode) {
+        
+        case 87:
+  
+          if(world.ultimaTecla2 != "abajo"){
+  
+          return make(world,{ultimaTecla2: "arriba", ultimaTecla: mov(world.ultimaTecla, keyCode)});}
+  
+          else{
+            return make(world,{ultimaTecla: mov(world.ultimaTecla, keyCode)});
+          }
+  
+        break;
+  
+        case 83:
+  
+          if(world.ultimaTecla2 != "arriba"){
+  
+            return make(world, { ultimaTecla: mov(world.ultimaTecla, keyCode), ultimaTecla2: "abajo" });
+            }
+          
+          else{
+            return make(world, { ultimaTecla: mov(world.ultimaTecla, keyCode)});
+          }
+        break;
+  
+        case 65:
+  
+          if(world.ultimaTecla2 != "derecha"){
+            return make(world, { ultimaTecla: mov(world.ultimaTecla, keyCode), ultimaTecla2: "izquierda" });
+          }else{
+            return make(world, { ultimaTecla: mov(world.ultimaTecla, keyCode)});
+          }
+          break;
+  
+        case 68:
+  
+          if(world.ultimaTecla2 != "izquierda"){
+          return make(world, { ultimaTecla: mov(world.ultimaTecla, keyCode), ultimaTecla2: "derecha" });
+          }else{
+            return make(world, { ultimaTecla: mov(world.ultimaTecla, keyCode)});
+          }
+          break;
+  
+        case processing.UP:
+          
+          if(world.ultimaTecla != "abajo"){
+          return make(world, { ultimaTecla: "arriba", ultimaTecla2: mov1(world.ultimaTecla2,keyCode) });
+          }else{
+            return make(world, { ultimaTecla2: mov1(world.ultimaTecla2,keyCode) });
+          }
+          break;
+  
+        case processing.DOWN:
+            
+          if(world.ultimaTecla != "arriba"){
+          return make(world, { ultimaTecla: "abajo", ultimaTecla2: mov1(world.ultimaTecla2,keyCode)});
+          }else{
+            return make(world, { ultimaTecla2: mov1(world.ultimaTecla2,keyCode)});
+          }
+          break;
+  
+  
+        case processing.LEFT:
+  
+          if(world.ultimaTecla != "derecha"){
+          return make(world, { ultimaTecla: "izquierda", ultimaTecla2: mov1(world.ultimaTecla2,keyCode)});
+          }else{
+            return make(world, { ultimaTecla2: mov1(world.ultimaTecla2,keyCode)});
+          }
+          break;
+  
+  
+        case processing.RIGHT:
+  
+          if(world.ultimaTecla != "izquierda"){
+          return make(world, { ultimaTecla: "derecha", ultimaTecla2: mov1(world.ultimaTecla2,keyCode) });
+          }else{
+            return make(world, { ultimaTecla2: mov1(world.ultimaTecla2,keyCode) });
+          }
+          break;
+
+        // k == 75, al presionar k se reinicia el juego
+        case 75:
+          return make(make(world, inicial), { comida: { x: (Math.round(Math.random() * 10) / 10) * 900, y: ((Math.round(Math.random() * 10) / 10) * 500 + 90) } })
+          break;
+
+        // p == 80, al presionar 'p' se pausa el juego
+        case 80:
+
+          if(world.pausa == false && world.perder == false && world.empate == false){
+
+            return make(world,{pausa: true});
+            
+          }else{
+          return make(world,{pausa: false})};
+        break;
+
+
+        default:
+          // el caso default basicamente retorna el mundo sin cambios (esto es en caso de que no haya ninguna tecla oprimida)
+          return make(world, {});
+          break;
+      }
+    }
+  
+
+
+
+  processing.onTic = function (world) {
+    
+    processing.frameRate(10+world.score+world.score2);
+      
+      
+      switch(true){
+      
+      //en caso de pause
+      case world.pausa:
+
+        return make(world,{});
+        break;
+        
+      //para evitar que la comida aparezca en algun obstaculo
+      case (search2(true, aplicar2(colision, world.obstaculos, world.comida)) || search2(true, aplicar2(colision, rest(world.snake), world.comida))):
+
+        return make(world, { comida: { x: (Math.round(Math.random() * 10) / 10) * 900, y: ((Math.round(Math.random() * 10) / 10) * 500 + 80) }, });
+        break;
+
+    
+      // confirma si hay una colision de la cabeza con cualquiera de los obstaculos
+      case (search2(true, aplicar2(colision, world.obstaculos, first(world.snake)))):
+
+        if(world.vida != 0){
+
+        return make(world, { vida: world.vida - 1, snake: cons({ x: 100, y: 100 }, aplicar(sumamil,rest(world.snake))), ultimaTecla: "derecha" });
+
+        }else{
+
+          return make(world, {perder: true});
+
+        }
+        break;
+
+      case (search2(true, aplicar2(colision, world.obstaculos, first(world.snake2)))):
+
+        if(world.vida2 != 0){
+
+        return make(world, { vida2: world.vida2 - 1, snake2: cons({ x: 100, y: 100 }, aplicar(sumamil,rest(world.snake2))), ultimaTecla2: "derecha" });
+
+        }else{
+
+          return make(world, {perder2: true});
+
+        }
+        break;
+      
+      
+      /* Las siguientes condiciones hacen que la snake no se salga del canvas
+      */
+      //derecha
+      case (first(world.snake).x >= 1000):
+
+        return make(world, { snake: cons(obj(first(world.snake).x - 1000, first(world.snake).y), rest(world.snake)) });
+        break;
+      
+      //izquierda
+      case (first(world.snake).x < 0):
+
+        return make(world, { snake: cons(obj(first(world.snake).x + 1000, first(world.snake).y), rest(world.snake)) });
+        break;
+      
+      //arriba
+      case (first(world.snake).y < 0):
+
+        return make(world, { snake: cons(obj(first(world.snake).x, first(world.snake).y + 600), rest(world.snake)) });
+        break;
+
+      case (first(world.snake).y >= 600):
+
+        return make(world, { snake: cons(obj(first(world.snake).x, first(world.snake).y - 600), rest(world.snake)) });
+        break;
+
+      //Igual para la snake 2
+
+      //derecha
+
+      case (first(world.snake2).x >= 1000):
+
+        return make(world, { snake2: cons(obj(first(world.snake2).x - 1000, first(world.snake2).y), rest(world.snake2)) });
+        break;
+      
+      //izquierda
+      case (first(world.snake2).x < 0):
+
+        return make(world, { snake2: cons(obj(first(world.snake2).x + 1000, first(world.snake2).y), rest(world.snake2)) });
+        break;
+      
+      //arriba
+      case (first(world.snake2).y < 0):
+
+        return make(world, { snake2: cons(obj(first(world.snake2).x, first(world.snake2).y + 600), rest(world.snake2)) });
+        break;
+
+      //abajo
+      case (first(world.snake2).y >= 600):
+
+        return make(world, { snake2: cons(obj(first(world.snake2).x, first(world.snake2).y - 600), rest(world.snake2)) });
+        break;
+
+    //-----------------------------------------------------------------------------------------------
+                                            //COLISIONES
+
+      /* esta condicion comprueba si la posicion de la cabeza de la snake (primer objeto de arreglo) es igual a alguna del cuerpo, si es el caso, entonces es porque la snake "se mordiÃ³ a si misma" y hace un make a la propiedad "perder" cambiandola a true
+      */
+       //
+
+
+      case (search(first(world.snake), rest(world.snake))):
+
+        if(world.vida != 0){
+
+        return make(world, { vida: world.vida - 1, snake: cons({ x: 100, y: 100 }, aplicar(sumamil,rest(world.snake))), ultimaTecla: "derecha" });
+
+        }else{
+
+          return make(world, {perder: true});
+
+        }
+        break;
+
+
+      case (first(world.snake).x == first(world.snake2).x  && first(world.snake).y == first(world.snake2).y + 10):
+
+        return make(world, {empate: true});
+        break;
+
+      case (first(world.snake).x == first(world.snake2).x + 10  && first(world.snake).y == first(world.snake2).y ):
+
+        return make(world, {empate: true});
+        break;
+
+      
+      case (search(first(world.snake2), rest(world.snake2))):
+
+        if(world.vida2 != 0){
+
+        return make(world, { vida2: world.vida2 - 1, snake2: cons({ x: 100, y: 100 }, aplicar(sumamil,rest(world.snake2))), ultimaTecla2: "derecha" });
+
+        }else{
+
+          return make(world, {perder2: true});
+
+        }
+        break;
+
+      
+      case (search(first(world.snake2), rest(world.snake))):
+
+        if(world.vida2 != 0){
+
+        return make(world, { vida2: world.vida2 - 1, snake2: cons({ x: 100, y: 100 }, aplicar(sumamil,rest(world.snake2))), ultimaTecla2: "derecha" });
+
+        }else{
+
+          return make(world, {perder2: true});
+
+        }
+        break;
+      
+      
+      case (search(first(world.snake), rest(world.snake2))):
+
+        if(world.vida != 0){
+
+        return make(world, { vida: world.vida - 1, snake: cons({ x: 100, y: 100 }, aplicar(sumamil,rest(world.snake))), ultimaTecla: "derecha" });
+
+        }else{
+
+          return make(world, {perder: true});
+
+        }
+        break;
+      
+
+      /* esta condicion comprueba si la cabeza de la serpiente está en la misma poscicion de la comida.
+      Si es el caso, cambia la posicion de la comida a una aleatoria, le suma un punto al score, aumenta la velocidad y añade un nuevo objeto al final del arreglo de la snake
+      */
+      case (first(world.snake).x === world.comida.x && first(world.snake).y === world.comida.y):
+
+          return make(world, {
+            comida: { x: (Math.round(Math.random() * 10) / 10) * 900, y: ((Math.round(Math.random() * 10) / 10) * 500 + 80) },
+            score: world.score + 1,
+            snake: append(world.snake, [{ x: last(world.snake).x, y: last(world.snake).y }])
+          });
+        break;
+
+      case (first(world.snake2).x === world.comida.x && first(world.snake2).y === world.comida.y):
+
+          return make(world, {
+            comida: { x: (Math.round(Math.random() * 10) / 10) * 900, y: ((Math.round(Math.random() * 10) / 10) * 500 + 80) },
+            score2: world.score2 + 1,
+            snake2: append(world.snake2, [{ x: last(world.snake2).x, y: last(world.snake2).y }])
+          });
+        break;
+      
+      //En estas condiciones se configura el movimiento de la serpiente dependiendo de ultimaTecla.
+      
+
+      case (world.ultimaTecla === "derecha"):
+
+        return make(world, 
+        { 
+          snake: cons(obj(first(world.snake).x + 10, first(world.snake).y), remove(last(world.snake), world.snake)),
+          snake2: mov2(world.snake2, world.ultimaTecla2)
+        });
+        break;
+
+      case (world.ultimaTecla === "arriba"):
+
+        return make(world, 
+        { 
+          snake: cons(obj(first(world.snake).x, first(world.snake).y - 10), remove(last(world.snake), world.snake)),
+          snake2: mov2(world.snake2,world.ultimaTecla2)
+        });
+        break;
+
+      case (world.ultimaTecla === "abajo"):
+
+        return make(world, 
+        { 
+          snake: cons(obj(first(world.snake).x, first(world.snake).y + 10), remove(last(world.snake), world.snake)),
+          snake2: mov2(world.snake2,world.ultimaTecla2)
+          });
+        break;
+
+      case (world.ultimaTecla === "izquierda"):
+
+        return make(world, 
+        { 
+          snake: cons(obj(first(world.snake).x - 10, first(world.snake).y), remove(last(world.snake), world.snake)),
+          snake2: mov2(world.snake2,world.ultimaTecla2)
+        });
+        break;
+      
+      default:
+        return make(world,{});
+        break;
+    }
+  }
+
+
+    // Dibuja algo en el canvas. Aqui se pone todo lo que quieras pintar
+    processing.drawGame = function (world) {
+      // esta funcion recibe un objeto y pinta un cuadro con sus propiedades x,y
+      let constructor = function (obj) {
+        return processing.image(cuerpo, obj.x, obj.y, 11, 11)
+        // processing.rect(obj.x, obj.y, 10, 10)
+      }
+      let pintarEscenario = function (obj) {
+        return processing.rect(obj.x, obj.y, obj.ancho, obj.alto)
+      }
+      let constructor2 = function (obj) {
+        return processing.image(cuerpo2, obj.x, obj.y, 11, 11)
+        // processing.rect(obj.x, obj.y, 10, 10)
+      }
+
+      //fondo
+      processing.background(10, 200, 50);
+      processing.image(fondo, 0, 0, 1000, 600);
+      
+      processing.fill(10,10,10);
+      //pinta comida
+      processing.image(huevo, world.comida.x, world.comida.y, 10, 10);
+
+      switch(world.vida){
+
+        case 3:
+          processing.image(corazon, 30, 50, 20, 20);
+          processing.image(corazon, 50, 50, 20, 20);
+          processing.image(corazon, 70, 50, 20, 20);
+        break;
+
+        case 2:
+          processing.image(corazon, 50, 50, 20, 20);
+          processing.image(corazon, 70, 50, 20, 20);
+        break;
+
+        case 1:
+          processing.image(corazon, 70, 50, 20, 20);
+        break;
+      }
+
+      switch(world.vida2){
+
+        case 3:
+          processing.image(corazon, 900, 50, 20, 20);
+          processing.image(corazon, 920, 50, 20, 20);
+          processing.image(corazon, 940, 50, 20, 20);
+        break;
+
+        case 2:
+          processing.image(corazon, 920, 50, 20, 20);
+          processing.image(corazon, 940, 50, 20, 20);
+        break;
+
+        case 1:
+          processing.image(corazon, 940, 50, 20, 20);
+        break;
+      }
+      
+
+      // aqui se pinta la cabeza de la serpiente (primer objeto del arreglo snake)
+      switch (world.ultimaTecla) {
+        case "derecha":
+          processing.image(cabeza, first(world.snake).x, first(world.snake).y, 11, 11)
+          break;
+        case "izquierda":
+          processing.image(cabezaIZQ, first(world.snake).x, first(world.snake).y, 11, 11)
+          break;
+        case "abajo":
+          processing.image(cabezaABA, first(world.snake).x, first(world.snake).y, 11, 11)
+          break;
+        case "arriba":
+          processing.image(cabezaARR, first(world.snake).x, first(world.snake).y, 11, 11)
+          break;
+      }
+
+
+      switch (world.ultimaTecla2) {
+        case "derecha":
+          processing.image(cabeza2, first(world.snake2).x, first(world.snake2).y, 11, 11)
+          break;
+        case "izquierda":
+          processing.image(cabezaIZQ2, first(world.snake2).x, first(world.snake2).y, 11, 11)
+          break;
+        case "abajo":
+          processing.image(cabezaABA2, first(world.snake2).x, first(world.snake2).y, 11, 11)
+          break;
+        case "arriba":
+          processing.image(cabezaARR2, first(world.snake2).x, first(world.snake2).y, 11, 11)
+          break;
+      }
+      processing.fill(240, 240, 240);
+      // aqui usamos la funcion que hace de mapeado para pintar el cuerpo de la serpiente
+      aplicar(constructor, rest(world.snake))
+      aplicar(constructor2, rest(world.snake2))
+      //en estas dos lineas siguientes se pinta el marcador de "score" en la pantalla
+      processing.textFont(processing.PFont, 18);
+      processing.text("Score: " + world.score, 30, 40);
+      processing.text("Score2: " + world.score2, 900, 40);
+      //aqui se pinta el escenario
+      processing.fill(200, 200, 200);
+      aplicar(pintarEscenario,world.obstaculos);
+      
+      
+      /* esta condicion verifica si la propiedad perder es igual a true... si es el caso pinta
+      en la pantalla un rectangulo y unas letras que indican que perdiste
+      */
+      if (world.perder === true) {
+        processing.fill(0, 240, 0);
+        processing.rect(0, 0, 1000, 1000)
+        processing.fill(0, 0, 0)
+        processing.textFont(processing.PFont, 50);
+        processing.text("               ¡Gana el segundo jugador!", 10, 200);
+      }
+
+      if (world.perder2 === true) {
+        processing.fill(0, 240, 0);
+        processing.rect(0, 0, 1000, 1000)
+        processing.fill(0, 0, 0)
+        processing.textFont(processing.PFont, 50);
+        processing.text("                         ¡Se acabó!\n\n               ¡Gana el primer jugador!", 10, 200);
+      }
+        
+      if(world.pausa == true){
+          processing.image(pausa, 0, 0, 1000, 600);
+          processing.fill(10, 10, 10)
+          processing.textFont(processing.PFont, 45);
+          processing.text("                    En pausa \n   \n   Oprime la tecla P para reanudar \n    ó Esc para ir al menú principal", 10, 200);
+      }
+    
+      if (world.empate === true) {
+        processing.fill(0, 240, 0);
+        processing.rect(0, 0, 1000, 1000)
+        processing.fill(0, 0, 0)
+        processing.textFont(processing.PFont, 50);
+        processing.text("                      ¡Empate!", 10, 200);
+      }
+      
+      
+    }
+
+
+
+    // Esta es la función que pinta todo. Se ejecuta 60 veces por segundo. 
+    // No cambie esta función. Su código debe ir en drawGame
+    processing.draw = function () {
+      processing.drawGame(processing.state);
+      processing.state = processing.onTic(processing.state);
+    };
+
+    processing.onMouseEvent = function(world, event) {
+      if (event.action === 'click') {
+        return make(world, {});
+      }else{
+      return make(world, {});
+    }
+      
+    }
+
+    // Esta función se ejecuta cada vez que presionamos una tecla. 
+    // No cambie esta función. Su código debe ir en onKeyEvent
+    processing.keyPressed = function () {
+      processing.state = processing.onKeyEvent(processing.state, processing.keyCode);
+    }
+    
+    // Esta función se ejecuta cada vez movemos el mouse. 
+    // No cambie esta función. Su código debe ir en onKeyEvent
+    processing.mouseMoved = function() {
+      processing.state = processing.onMouseEvent(processing.state, 
+      {action: "move", mouseX: processing.mouseX, mouseY: processing.mouseY});
+      
+    }
+
+    // Estas funciones controlan los eventos del mouse. 
+    // No cambie estas funciones. Su código debe ir en OnMouseEvent
+    processing.mouseClicked = function() {
+      processing.state = processing.onMouseEvent(processing.state, 
+      {action: "click", mouseX: processing.mouseX, mouseY: processing.mouseY, mouseButton: processing.mouseButton});
+      
+      console.log(processing.mouseX)
+      console.log(processing.mouseY)
+    } 
+
+    processing.mouseDragged = function() {
+      processing.state = processing.onMouseEvent(processing.state, 
+      {action: "drag", mouseX: processing.mouseX, mouseY: processing.mouseY, mouseButton: processing.mouseButton});
+    }
+
+    processing.mousePressed = function() {
+      processing.state = processing.onMouseEvent(processing.state, 
+      {action: "press", mouseX: processing.mouseX, mouseY: processing.mouseY, mouseButton: processing.mouseButton});
+    }
+
+    processing.mouseReleased = function() {
+      processing.state = processing.onMouseEvent(processing.state, 
+      {action: "release", mouseX: processing.mouseX, mouseY: processing.mouseY, mouseButton: processing.mouseButton});
+    }
+    }
+  
+
+
+
+  var canvas = document.getElementById("canvas");
+
+  // Adjuntamos nuestro sketch al framework de processing
+  var processingInstance = new Processing(canvas, sketchProc);
+</script>
+<button type="button" class="btn btn-success btnterapia" onClick="pantallaComp()">Pantalla Completa</button>
